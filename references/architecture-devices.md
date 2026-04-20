@@ -130,15 +130,17 @@ Each link is a direct connection: `Device A / Interface ↔ Device B / Interface
 
 Interface byte counters are tiered to reflect data center traffic flow (Internet → Edge → … → PDU):
 
-| Tier | Role | Approx. bytes (cumulative) |
-|------|------|---------------------------|
-| 1 | Edge | ~120 GB |
-| 2 | Firewall | ~90 GB |
-| 3 | Load Balancer | ~70 GB |
-| 4 | Core | ~55 GB |
-| 5 | Leaf / Access | ~25 GB |
-| 6 | SAN / WLC | ~12 GB |
-| 7 | PDU | ~2 GB |
+| Tier | Role | Approx. byte counters (SI, on LLDP-facing ifIndex rows) |
+|------|------|--------------------------------------------------------|
+| 1 | Edge | ~1.2×10¹¹ |
+| 2 | Firewall | ~9×10¹⁰ |
+| 3 | Load Balancer | ~7×10¹⁰ |
+| 4 | Core | ~5.5×10¹⁰ |
+| 5 | Leaf / Access | ~2.5×10¹⁰ |
+| 6 | SAN / WLC | ~1.2×10¹⁰ |
+| 7 | PDU | ~2×10⁹ |
+
+Values scale simulated `ifHCInOctets` / `ifHCOutOctets` (and matching 32-bit `ifInOctets` / `ifOutOctets` where present).
 
 Topology interfaces (ports with LLDP neighbors) use these values; other interfaces inherit from the base data.
 

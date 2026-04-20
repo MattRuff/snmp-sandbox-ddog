@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """Generate device-specific SNMP data from base mocksnmp.snmprec.
-   Includes LLDP (all devices) and CDP (Cisco devices) for topology discovery."""
+Includes LLDP (all devices) and CDP (Cisco devices) for topology discovery.
+
+SNMP modelling conventions applied here:
+- sysObjectID matches vendor/product family; sysDescr aligns with that identity.
+- sysUpTime uses ASN.1 TimeTicks (snmpsim type 67), not a string.
+- HOST-RESOURCES memory: used ≤ total; CPU load 0–100.
+- ifHC* 64-bit counters paired with 32-bit ifInOctets/ifOutOctets on the same ifIndex
+  (32-bit values clamped to 2^32−1 when HC exceeds Counter32 range).
+- Palo Alto session utilization is derived from active/max unless overridden.
+- CDP neighbor fields use per-platform version strings and plausible remote port IDs.
+"""
 
 import os
 
@@ -55,8 +65,20 @@ DEVICES = {
             {"name": "paloalto-pa3220-2", "sysname": "paloalto-pa3220-2", "desc": "Palo Alto PA-3220", "ip": "172.20.0.12", "local_port": "A2", "remote_port": "A1"},
         ],
         "cdp_neighbors": [
-            {"name": "paloalto-pa3220-1", "platform": "Palo Alto PA-3220", "ip": "172.20.0.11"},
-            {"name": "paloalto-pa3220-2", "platform": "Palo Alto PA-3220", "ip": "172.20.0.12"},
+            {
+                "name": "paloalto-pa3220-1",
+                "platform": "Palo Alto PA-3220",
+                "ip": "172.20.0.11",
+                "device_port": "GigabitEthernet0/1/0",
+                "version": "PAN-OS 10.2.0",
+            },
+            {
+                "name": "paloalto-pa3220-2",
+                "platform": "Palo Alto PA-3220",
+                "ip": "172.20.0.12",
+                "device_port": "GigabitEthernet0/2/0",
+                "version": "PAN-OS 10.2.0",
+            },
         ],
     },
     "paloalto-pa3220-1": {
@@ -70,7 +92,6 @@ DEVICES = {
         "memory_total_kb": 16777216,  # 16GB
         "memory_used_kb": 10485760,   # ~10GB used
         "palo_alto": True,
-        "pan_session_util": 38,   # % session table used
         "pan_session_max": 1000000,
         "pan_session_active": 185000,
         "lldp_neighbors": [
@@ -89,7 +110,6 @@ DEVICES = {
         "memory_total_kb": 16777216,
         "memory_used_kb": 9961472,   # ~9.5GB
         "palo_alto": True,
-        "pan_session_util": 32,
         "pan_session_max": 1000000,
         "pan_session_active": 142000,
         "lldp_neighbors": [
@@ -184,7 +204,8 @@ DEVICES = {
     },
     "cisco-mds-9148": {
         "sysdescr": "Cisco MDS 9148S 16G 48-Port Fabric Switch, NX-OS 9.3(1)",
-        "sysobjectid": ".1.3.6.1.4.1.9.1.1216",  # cisco-nexus (ciscoN7KC7018IOS)
+        # CISCO-PRODUCTS-MIB: MDS 9000 / NX-OS SAN family (not a Nexus 7K switch OID)
+        "sysobjectid": ".1.3.6.1.4.1.9.1.1737",  # ciscoMds9848512K9SM — MDS 9000 line; lab analogue for MDS 9148S
         "sysname": "cisco-mds-9148-san",
         "ip": "172.20.0.18",
         "throughput_tier": 6,
@@ -197,14 +218,27 @@ DEVICES = {
             {"name": "arista-7280r-core2", "sysname": "arista-7280r-core2", "desc": "Arista 7280R", "ip": "172.20.0.15", "local_port": "A2", "remote_port": "A4"},
         ],
         "cdp_neighbors": [
-            {"name": "arista-7280r-core1", "platform": "Arista 7280R", "ip": "172.20.0.14"},
-            {"name": "arista-7280r-core2", "platform": "Arista 7280R", "ip": "172.20.0.15"},
+            {
+                "name": "arista-7280r-core1",
+                "platform": "Arista Networks DCS-7280",
+                "ip": "172.20.0.14",
+                "device_port": "fc1/1",
+                "version": "Arista EOS 4.28.3F",
+            },
+            {
+                "name": "arista-7280r-core2",
+                "platform": "Arista Networks DCS-7280",
+                "ip": "172.20.0.15",
+                "device_port": "fc1/2",
+                "version": "Arista EOS 4.28.3F",
+            },
         ],
     },
     "cisco-catalyst-9300": {
         "sysdescr": "Cisco IOS-XE Software, Catalyst 9300 48-Port, Version 17.9.4",
         "sysobjectid": ".1.3.6.1.4.1.9.1.2802",  # cisco-catalyst (ciscoCat9300L24UXG2Q)
         "sysname": "cisco-catalyst-9300-access",
+        "chassis_serial": "FCW2308L0CA",
         "ip": "172.20.0.19",
         "throughput_tier": 5,
         "cisco": True,
@@ -218,7 +252,13 @@ DEVICES = {
             {"name": "apc-ap8853-pdu", "sysname": "apc-ap8853-pdu", "desc": "APC AP8853 PDU", "ip": "172.20.0.21", "local_port": "A4", "remote_port": "A1"},
         ],
         "cdp_neighbors": [
-            {"name": "cisco-9800-wlc", "platform": "Cisco 9800-CL", "ip": "172.20.0.20"},
+            {
+                "name": "cisco-9800-wlc",
+                "platform": "Cisco Catalyst 9800-CL Wireless Controller",
+                "ip": "172.20.0.20",
+                "device_port": "GigabitEthernet1/0/1",
+                "version": "Cisco IOS-XE 17.9.4",
+            },
         ],
     },
     "cisco-9800-wlc": {
@@ -235,7 +275,13 @@ DEVICES = {
             {"name": "cisco-catalyst-9300", "sysname": "cisco-catalyst-9300-access", "desc": "Cisco Catalyst 9300", "ip": "172.20.0.19", "local_port": "A1", "remote_port": "A3"},
         ],
         "cdp_neighbors": [
-            {"name": "cisco-catalyst-9300", "platform": "Cisco Catalyst 9300", "ip": "172.20.0.19"},
+            {
+                "name": "cisco-catalyst-9300",
+                "platform": "Cisco Catalyst 9300",
+                "ip": "172.20.0.19",
+                "device_port": "GigabitEthernet1/0/3",
+                "version": "Cisco IOS-XE 17.9.4",
+            },
         ],
     },
     "apc-ap8853-pdu": {
@@ -306,6 +352,8 @@ def host_resources_entries(device_values):
     cpu = device_values.get("cpu_pct", 20)
     total_kb = device_values.get("memory_total_kb", 8388608)
     used_kb = device_values.get("memory_used_kb", 4194304)
+    used_kb = min(used_kb, total_kb)
+    cpu = max(0, min(100, int(cpu)))
     lines = []
     lines.append(f"1.3.6.1.2.1.25.3.3.1.2.1|2|{cpu}")
     lines.append("1.3.6.1.2.1.25.2.3.1.1.1|2|1")
@@ -319,9 +367,15 @@ def host_resources_entries(device_values):
 
 def palo_alto_entries(device_values):
     """PAN-COMMON-MIB session metrics for Palo Alto firewalls."""
-    util = device_values.get("pan_session_util", 35)
     max_sess = device_values.get("pan_session_max", 1000000)
     active = device_values.get("pan_session_active", 150000)
+    max_sess = max(max_sess, 1)
+    # Session table % should track active vs max (avoids contradictory util vs active)
+    util = device_values.get("pan_session_util")
+    if util is None:
+        util = min(100, max(0, int(round(100.0 * active / max_sess))))
+    else:
+        util = max(0, min(100, int(util)))
     return [
         f"{PAN_SESSION_UTIL}|2|{util}",
         f"{PAN_SESSION_MAX}|2|{max_sess}",
@@ -335,7 +389,7 @@ CISCO_CHASSIS_SERIAL = "1.3.6.1.4.1.9.5.1.2.19.0"
 
 def cisco_catalyst_entries(device_values):
     """Cisco Catalyst profile: CISCO-STACK-MIB chassisSerialNumberString for metadata."""
-    serial = f"FCW{device_values.get('sysname', 'catalyst')[:10].replace('-', '')}001"
+    serial = device_values.get("chassis_serial", "FCW2308L0CA")
     return [f"{CISCO_CHASSIS_SERIAL}|4|{serial}"]
 
 
@@ -345,16 +399,18 @@ def cdp_entries(neighbors):
     for i, n in enumerate(neighbors, 1):
         idx = f"1.{i}"  # ifIndex=1, deviceIndex=i
         ip = n.get("ip", "0.0.0.0")
+        device_port = n.get("device_port", "GigabitEthernet1/0/1")
+        version = n.get("version", "Unknown")
         # cdpCacheAddressType (1=ipv4)
         lines.append(f"{CDP_CACHE_BASE}.3.{idx}|2|1")
         # cdpCacheAddress (IPv4 dotted decimal)
         lines.append(f"{CDP_CACHE_BASE}.4.{idx}|4|{ip}")
-        # cdpCacheVersion
-        lines.append(f"{CDP_CACHE_BASE}.5.{idx}|4|17.9.4")
+        # cdpCacheVersion (neighbor software — not always IOS on the remote)
+        lines.append(f"{CDP_CACHE_BASE}.5.{idx}|4|{version}")
         # cdpCacheDeviceId
         lines.append(f"{CDP_CACHE_BASE}.6.{idx}|4|{n['name']}")
-        # cdpCacheDevicePort
-        lines.append(f"{CDP_CACHE_BASE}.7.{idx}|4|Eth0/1")
+        # cdpCacheDevicePort (remote port toward us)
+        lines.append(f"{CDP_CACHE_BASE}.7.{idx}|4|{device_port}")
         # cdpCachePlatform
         lines.append(f"{CDP_CACHE_BASE}.8.{idx}|4|{n['platform']}")
     return lines
@@ -365,7 +421,8 @@ def arista_entries(device_values, num_lldp_ports):
     ENTITY-MIB index 1 is replaced in main loop. Covers all profile metrics for topology interfaces."""
     lines = []
     # ENTITY-SENSOR-MIB - temp (8=celsius), power (6=watts), operStatus (1=ok)
-    for idx, sens_type, value in [(25, 8, 42), (26, 8, 38), (30, 6, 450), (31, 6, 450), (32, 6, 0)]:
+    # Avoid 0 W readings with operStatus=ok (use minimal plausible draw for PSU sensors)
+    for idx, sens_type, value in [(25, 8, 42), (26, 8, 38), (30, 6, 450), (31, 6, 448), (32, 6, 12)]:
         lines.append(f"{ENT_PHY_SENSOR_BASE}.1.{idx}|2|{sens_type}")
         lines.append(f"{ENT_PHY_SENSOR_BASE}.4.{idx}|2|{value}")
         lines.append(f"{ENT_PHY_SENSOR_BASE}.5.{idx}|2|1")
@@ -406,6 +463,14 @@ def main():
                 new_lines.append(f"1.3.6.1.2.1.1.2.0|6|{values['sysobjectid']}")
             elif line.startswith("1.3.6.1.2.1.1.5.0|"):
                 new_lines.append(f"1.3.6.1.2.1.1.5.0|4|{values['sysname']}")
+            elif line.startswith("1.3.6.1.2.1.1.3.0|"):
+                # RFC 1213 sysUpTime is TimeTicks (snmpsim tag 67), not OctetString
+                tick = 3_600_000 + 50_000 * int(values["ip"].rsplit(".", 1)[-1])
+                new_lines.append(f"1.3.6.1.2.1.1.3.0|67|{tick}")
+            elif line.startswith("1.3.6.1.2.1.1.4.0|"):
+                new_lines.append("1.3.6.1.2.1.1.4.0|4|snmp-lab@example.com")
+            elif line.startswith("1.3.6.1.2.1.1.6.0|"):
+                new_lines.append("1.3.6.1.2.1.1.6.0|4|DC-Lab / SNMP sandbox")
             elif is_arista and line.startswith("1.3.6.1.2.1.47.1.1.1.1.2.1|"):
                 new_lines.append(f"{ENTITY_PHYS_BASE}.2.1|4|{values.get('arista_model', 'DCS-7280SR-48C6')} Chassis")
             elif is_arista and line.startswith("1.3.6.1.2.1.47.1.1.1.1.8.1|"):
@@ -421,12 +486,24 @@ def main():
                 num_ports = max(_port_num(n.get("local_port", f"A{i}")) for i, n in enumerate(lldp_neighbors, 1)) if lldp_neighbors else 1
                 for i in range(1, num_ports + 1):
                     in_oid, out_oid = f"{IF_HC_IN}.{i}|", f"{IF_HC_OUT}.{i}|"
+                    in32, out32 = f"1.3.6.1.2.1.2.2.1.10.{i}|", f"1.3.6.1.2.1.2.2.1.16.{i}|"
+                    hc_in = int(base_bytes * (1 - 0.05 * i))
+                    hc_out = int(base_bytes * 0.9 * (1 - 0.05 * i))
                     if line.startswith(in_oid):
-                        new_lines.append(f"{IF_HC_IN}.{i}|70|{int(base_bytes * (1 - 0.05 * i))}")
+                        new_lines.append(f"{IF_HC_IN}.{i}|70|{hc_in}")
                         replaced = True
                         break
                     if line.startswith(out_oid):
-                        new_lines.append(f"{IF_HC_OUT}.{i}|70|{int(base_bytes * 0.9 * (1 - 0.05 * i))}")
+                        new_lines.append(f"{IF_HC_OUT}.{i}|70|{hc_out}")
+                        replaced = True
+                        break
+                    # IF-MIB: keep 32-bit counters in range and ≤ HC for high-speed interfaces
+                    if line.startswith(in32):
+                        new_lines.append(f"1.3.6.1.2.1.2.2.1.10.{i}|65|{min(hc_in, 2**32 - 1)}")
+                        replaced = True
+                        break
+                    if line.startswith(out32):
+                        new_lines.append(f"1.3.6.1.2.1.2.2.1.16.{i}|65|{min(hc_out, 2**32 - 1)}")
                         replaced = True
                         break
                 if not replaced:

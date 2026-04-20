@@ -12,7 +12,7 @@ Devices are matched by `sysObjectID` to Datadog vendor profiles:
 | Palo Alto PA-3220 | palo-alto | CPU, memory, interfaces, **panSessionUtilization**, **panSessionActive** |
 | F5 BIG-IP LTM | f5-big-ip | CPU, memory, interfaces, F5-specific |
 | Arista 7280R/7050X | arista | CPU, memory, interfaces, **entPhySensorTable** (temp), BGP |
-| Cisco MDS 9148 | cisco-nexus | CPU, memory, interfaces |
+| Cisco MDS 9148 | cisco-nexus | CPU, memory, interfaces (`sysObjectID` uses a Cisco MDS 9000–family OID from CISCO-PRODUCTS-MIB, not a Nexus 7K) |
 | Cisco Catalyst 9300 | cisco-catalyst | CPU, memory, interfaces |
 | Cisco 9800 WLC | cisco-catalyst-wlc | CPU, memory, interfaces, wireless clients |
 | APC AP8853 PDU | apc-pdu | **powernet.rPDULoadStatusLoad**, outlet status |
