@@ -1,0 +1,308 @@
+# Network architecture SNMP simulator — one container per device
+# Community string: mocksnmp for all devices
+#
+# SNMP device data lives inside the simulator image (/opt/snmpsim-data), not bind-mounted
+# from the host (avoids Docker+I/O issues with Google Drive and similar paths).
+#
+# Default SNMP image: Docker Hub (override with SNMP_SIM_IMAGE for local builds, e.g. snmp_container:local).
+# Local build: SNMP_SIM_IMAGE=snmp_container:local docker compose build && docker compose up -d
+# Pre-built: docker compose pull && docker compose up -d --no-build
+
+x-snmp-simulator: &snmp-simulator
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python3", "/opt/snmpsim-healthcheck.py"]
+    interval: 30s
+    timeout: 25s
+    retries: 5
+    start_period: 120s
+
+services:
+  # 1. Edge - Cisco ASR1001
+  cisco-asr1001:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.snmp_container
+    container_name: cisco-asr1001
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/cisco-asr1001
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:cisco-asr1001,role:edge-router
+    ports:
+      - "11610:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.10
+
+  # 2. Firewall - Palo Alto PA-3220 HA Pair
+  paloalto-pa3220-1:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: paloalto-pa3220-1
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/paloalto-pa3220-1
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:paloalto-pa3220,role:firewall,ha:primary
+    ports:
+      - "11611:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.11
+
+  paloalto-pa3220-2:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: paloalto-pa3220-2
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/paloalto-pa3220-2
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:paloalto-pa3220,role:firewall,ha:secondary
+    ports:
+      - "11612:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.12
+
+  # 3. Load Balancer - F5 BIG-IP LTM
+  f5-bigip-ltm:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: f5-bigip-ltm
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/f5-bigip-ltm
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:f5-bigip,role:load-balancer
+    ports:
+      - "11613:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.13
+
+  # 4. Core - Arista 7280R (MLAG pair)
+  arista-7280r-core1:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: arista-7280r-core1
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/arista-7280r-core1
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:arista-7280r,role:core-switch,mlag:primary
+    ports:
+      - "11614:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.14
+
+  arista-7280r-core2:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: arista-7280r-core2
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/arista-7280r-core2
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:arista-7280r,role:core-switch,mlag:secondary
+    ports:
+      - "11615:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.15
+
+  # 5. Leaf - Arista 7050X ToR
+  arista-7050x-leaf1:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: arista-7050x-leaf1
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/arista-7050x-leaf1
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:arista-7050x,role:leaf-tor,rack:1
+    ports:
+      - "11616:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.16
+
+  arista-7050x-leaf2:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: arista-7050x-leaf2
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/arista-7050x-leaf2
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:arista-7050x,role:leaf-tor,rack:2
+    ports:
+      - "11617:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.17
+
+  # 6. SAN - Cisco MDS 9148
+  cisco-mds-9148:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: cisco-mds-9148
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/cisco-mds-9148
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:cisco-mds,role:san-switch
+    ports:
+      - "11618:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.18
+
+  # 7. Access - Cisco Catalyst 9300
+  cisco-catalyst-9300:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: cisco-catalyst-9300
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/cisco-catalyst-9300
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:cisco-catalyst-9300,role:access-switch
+    ports:
+      - "11619:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.19
+
+  # 8. Wireless - Cisco 9800 WLC
+  cisco-9800-wlc:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: cisco-9800-wlc
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/cisco-9800-wlc
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:cisco-9800-wlc,role:wireless-controller
+    ports:
+      - "11620:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.20
+
+  # 9. Management - APC AP8853 PDU
+  apc-ap8853-pdu:
+    <<: *snmp-simulator
+    image: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    container_name: apc-ap8853-pdu
+    command:
+      - snmpsim-command-responder
+      - --data-dir=/opt/snmpsim-data/apc-ap8853-pdu
+      - --agent-udpv4-endpoint=0.0.0.0:161
+      - --process-user=nobody
+      - --process-group=nogroup
+    environment:
+      - DD_TAGS=device:apc-ap8853,role:pdu
+    ports:
+      - "11621:161/udp"
+    networks:
+      static-network:
+        ipv4_address: 172.20.0.21
+
+  # Datadog Agent - SNMP autodiscovery on 172.20.0.0/24
+  datadog-agent:
+    image: registry.datadoghq.com/agent:7
+    container_name: datadog-agent
+    depends_on:
+      cisco-asr1001:
+        condition: service_healthy
+      paloalto-pa3220-1:
+        condition: service_healthy
+      paloalto-pa3220-2:
+        condition: service_healthy
+      f5-bigip-ltm:
+        condition: service_healthy
+      arista-7280r-core1:
+        condition: service_healthy
+      arista-7280r-core2:
+        condition: service_healthy
+      arista-7050x-leaf1:
+        condition: service_healthy
+      arista-7050x-leaf2:
+        condition: service_healthy
+      cisco-mds-9148:
+        condition: service_healthy
+      cisco-catalyst-9300:
+        condition: service_healthy
+      cisco-9800-wlc:
+        condition: service_healthy
+      apc-ap8853-pdu:
+        condition: service_healthy
+    environment:
+      # Required at runtime — never commit a key. Either export DD_API_KEY, pass -e to the setup
+      # container, or set DD_API_KEY in snmp/.env (gitignored) for compose variable substitution.
+      - DD_API_KEY=${DD_API_KEY:?Set DD_API_KEY (export or snmp/.env — see .env.example)}
+      - DD_SITE=${DD_SITE:-datadoghq.com}
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_AUTO_MULTI_LINE_DETECTION=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE_LOGS=name:datadog-agent
+    volumes:
+      # Named volume: /opt/datadog-agent/run is not on Docker Desktop Mac file-sharing list
+      - datadog_run:/opt/datadog-agent/run:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ../agent_config/datadog-docker.yaml:/etc/datadog-agent/datadog-docker.yaml:ro
+      - ../tcpdump:/tcpdumps:rw
+    networks:
+      - static-network
+    restart: unless-stopped
+
+networks:
+  static-network:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  datadog_run:

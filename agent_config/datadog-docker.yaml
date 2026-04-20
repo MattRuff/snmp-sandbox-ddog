@@ -1,0 +1,23 @@
+## Provides autodetected defaults, for vanilla Docker environments,
+## please see datadog.yaml.example for all supported options
+
+apm_config:
+  apm_non_local_traffic: true
+
+# Use java container support
+jmx_use_container_support: true
+
+network_devices:
+  autodiscovery:
+    ## use_deduplication - boolean - optional - default: false
+    workers: 100  # number of workers used to discover devices concurrently
+    discovery_interval: 3600 # interval between each autodiscovery in seconds
+    loader: core  # use core check implementation of SNMP integration. recommended
+    use_device_id_as_hostname: true  # recommended
+    collect_topology: true
+    configs:
+      - network_address: 172.20.0.0/24  # CIDR subnet
+        loader: core
+        snmp_version: 2
+        port: 161
+        community_string: 'mocksnmp'  # enclose with single quote

@@ -1,0 +1,24 @@
+# SNMP simulator — all device .snmprec data is baked into the image so bind-mounts
+# from cloud-synced folders (e.g. Google Drive) are not required at runtime.
+FROM python:3.12-slim
+
+RUN pip install --no-cache-dir snmpsim-lextudio
+
+COPY snmp-healthcheck.py /opt/snmpsim-healthcheck.py
+RUN chmod +x /opt/snmpsim-healthcheck.py
+
+# One tree: /opt/snmpsim-data/<device>/mocksnmp.snmprec (matches compose service data dirs)
+COPY data/ /opt/snmpsim-data/
+
+RUN chmod -R a+rX /opt/snmpsim-data
+
+ENV SNMPSIM_DATA_DIR=/opt/snmpsim-data
+EXPOSE 161/udp
+
+# Overridden per service in docker-compose (device-specific --data-dir).
+# Default is valid for a quick single-container smoke test.
+CMD ["snmpsim-command-responder", \
+     "--data-dir=/opt/snmpsim-data/cisco-asr1001", \
+     "--agent-udpv4-endpoint=0.0.0.0:161", \
+     "--process-user=nobody", \
+     "--process-group=nogroup"]

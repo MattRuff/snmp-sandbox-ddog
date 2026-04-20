@@ -1,0 +1,22 @@
+# Run docker compose from a container so the host repo can live on slow/cloud paths.
+# SNMP data comes from the simulator image; the Datadog API key is NOT in any image — pass it at run time.
+#
+# Build (from repo root):
+#   docker build -f snmp/Dockerfile.sandbox-setup -t snmp-sandbox-setup .
+#
+# Run stack (required: pass DD_API_KEY into this container; optional: SNMP_SIM_IMAGE):
+#   docker run --rm -it \
+#     -v /var/run/docker.sock:/var/run/docker.sock \
+#     -v "$(pwd)":/work \
+#     -w /work/snmp \
+#     -e DD_API_KEY \
+#     -e SNMP_SIM_IMAGE=matthewruyffelaert667/snmp-sandbox-sim:latest \
+#     snmp-sandbox-setup compose up -d --no-build
+#
+# Or set the key only for this run:
+#   docker run --rm -it ... -e DD_API_KEY="$DD_API_KEY" ...
+#
+FROM docker:27-cli
+
+ENTRYPOINT ["docker"]
+CMD ["compose", "version"]

@@ -1,0 +1,28 @@
+# Secrets and local env
+snmp/.env
+.env
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+
+# Cursor / VS Code (local)
+.cursor/
+
+# Local captures and debug output (optional folder for tcpdump/wireshark)
+tcpdump/*.log
+tcpdump/*.pcap
+tcpdump/*.pcapng

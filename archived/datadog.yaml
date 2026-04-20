@@ -1,0 +1,16 @@
+# Minimal Datadog Agent config for SNMP sandbox
+# DD_API_KEY and DD_SITE are set via environment variables
+
+network_devices:
+  autodiscovery:
+    workers: 100
+    discovery_interval: 3600
+    loader: core
+    use_device_id_as_hostname: true
+    configs:
+      - network_address: 172.20.0.0/24
+        loader: core
+        snmp_version: 2
+        port: 161
+        community_string: 'mocksnmp'
+        collect_topology: true
