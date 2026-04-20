@@ -26,8 +26,8 @@ See [references/architecture-devices.md](references/architecture-devices.md) for
 ## Quick start
 
 ```bash
-git clone <your-fork-or-repo-url>.git
-cd snmp_sandbox_ddog   # or your clone directory name
+git clone https://github.com/MattRuff/snmp-sandbox-ddog.git
+cd snmp-sandbox-ddog
 
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
