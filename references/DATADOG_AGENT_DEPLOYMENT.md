@@ -23,25 +23,35 @@ Docker Compose reads `snmp/.env` for variable substitution into `docker-compose.
 
 **SNMP simulators** default to **`matthewruyffelaert667/snmp-sandbox-sim:latest`** on Docker Hub. Override with `export SNMP_SIM_IMAGE=...` if needed. After editing generated `snmp/data`, rebuild locally with `SNMP_SIM_IMAGE=snmp_container:local docker compose build cisco-asr1001` (then `up -d`).
 
-**Setup container** — pass the key into the runner so compose sees it:
+**Recommended — one container (no Python)** — from the **repository root**:
 
 ```bash
-docker run --rm -it \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v "$(pwd)":/work -w /work/snmp \
-  -e DD_API_KEY \
-  snmp-sandbox-setup compose up -d --no-build
+export DD_API_KEY='<your_datadog_api_key>'
+docker compose -f compose.sandbox.yaml run --rm --build sandbox-cli
 ```
 
-(Requires `export DD_API_KEY=...` on the host first, or replace `-e DD_API_KEY` with `-e DD_API_KEY='...'`.)
+Or put the key in `snmp/.env` (same as Option B above); the CLI container reads it when it runs `docker compose` against `snmp/docker-compose.yaml`.
+
+**Stop the stack:**
+
+```bash
+docker compose -f compose.sandbox.yaml run --rm sandbox-cli down
+```
+
+**Alternative — from `snmp/` on the host** (same Compose project, no wrapper image):
+
+```bash
+cd snmp && docker compose up -d
+```
 
 ## Automatic Installation
 
-The agent starts when you run:
+The agent starts when you run any of:
 
-- **Option 2** from the menu (`python menu.py`)
-- `python start_sandbox.py`
-- Or directly: `cd snmp && docker compose up -d`
+- `docker compose -f compose.sandbox.yaml run --rm --build sandbox-cli` (recommended)
+- **Option 2** from `python menu.py` (wraps the same command)
+- `python start_sandbox.py` (same wrapper)
+- Or: `cd snmp && docker compose up -d`
 
 ## Config
 

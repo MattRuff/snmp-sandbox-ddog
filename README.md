@@ -17,29 +17,35 @@ See [references/architecture-devices.md](references/architecture-devices.md) for
 | Tool | Notes |
 |------|--------|
 | **Docker Desktop** (Mac) | Current version, daemon running |
-| **Python 3.11.x** | e.g. `pyenv install 3.11.9` and `pyenv local 3.11.9` in this repo |
+| **Python 3.11.x** | Only for regenerating device data (`generate_device_data.py`) and optional `menu.py` |
 | **Wireshark** (optional) | `brew install --cask wireshark` |
 | **Datadog Agent** | Host agent optional; SNMP autodiscovery uses the **Docker** agent in `snmp/docker-compose.yaml` |
 
 ---
 
-## Quick start
+## Quick start (containers only)
+
+From the **repository root** — builds a tiny Docker CLI image, then starts all SNMP simulators and the Datadog Agent on the **host** Docker daemon (socket-mounted):
 
 ```bash
 git clone https://github.com/MattRuff/snmp-sandbox-ddog.git
 cd snmp-sandbox-ddog
 
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+cp snmp/.env.example snmp/.env
+# Edit snmp/.env: set DD_API_KEY (see references/DATADOG_AGENT_DEPLOYMENT.md)
 
-cd snmp
-cp .env.example .env
-# Edit .env: set DD_API_KEY (see references/DATADOG_AGENT_DEPLOYMENT.md)
-
-# Start simulators + agent (from repo root or follow SANDBOX_WORKFLOW.md)
+docker compose -f compose.sandbox.yaml run --rm --build sandbox-cli
 ```
 
-Pre-built SNMP simulator images default to **`matthewruyffelaert667/snmp-sandbox-sim:latest`** on Docker Hub (`SNMP_SIM_IMAGE` overrides). Pass **`DD_API_KEY`** via `snmp/.env`, `export`, or compose environment. Details: [references/DATADOG_AGENT_DEPLOYMENT.md](references/DATADOG_AGENT_DEPLOYMENT.md).
+**Tear down:**
+
+```bash
+docker compose -f compose.sandbox.yaml run --rm sandbox-cli down
+```
+
+Pre-built SNMP simulator images default to **`matthewruyffelaert667/snmp-sandbox-sim:latest`** on Docker Hub (`SNMP_SIM_IMAGE` overrides). Pass **`DD_API_KEY`** via `snmp/.env` or `export`. Details: [references/DATADOG_AGENT_DEPLOYMENT.md](references/DATADOG_AGENT_DEPLOYMENT.md).
+
+**Optional:** `python menu.py` or `python start_sandbox.py` call the same `compose.sandbox.yaml` flow. Regenerating MIB data still uses `cd snmp && python generate_device_data.py` (see [references/SANDBOX_WORKFLOW.md](references/SANDBOX_WORKFLOW.md)).
 
 ---
 

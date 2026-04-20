@@ -1,0 +1,26 @@
+# Run the SNMP + Datadog stack without Python: uses Docker-in-Docker (host socket).
+#
+# From the repository root:
+#   export DD_API_KEY=<your_key>
+#   docker compose -f compose.sandbox.yaml run --rm sandbox-cli
+#
+# Tear down:
+#   docker compose -f compose.sandbox.yaml run --rm sandbox-cli down
+#
+# Optional: SNMP_SIM_IMAGE, DD_SITE — same as snmp/docker-compose.yaml
+
+services:
+  sandbox-cli:
+    build:
+      context: .
+      dockerfile: snmp/Dockerfile.sandbox-setup
+    image: snmp-sandbox-cli:local
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/work:rw
+    working_dir: /work
+    environment:
+      DD_API_KEY: ${DD_API_KEY:-}
+      DD_SITE: ${DD_SITE:-datadoghq.com}
+      SNMP_SIM_IMAGE: ${SNMP_SIM_IMAGE:-matthewruyffelaert667/snmp-sandbox-sim:latest}
+    command: ["up"]
